@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🔥 好傢在年終慶活動 🔥</title>
+    <style>
+        :root { --gold: #ffdf00; --red: #e60000; --dark-red: #8b0000; --accent: #ffefba; }
+        body { 
+            font-family: "Microsoft JhengHei", sans-serif; 
+            background: linear-gradient(135deg, var(--dark-red) 0%, #330000 100%);
+            display: flex; justify-content: center; padding: 10px; min-height: 100vh; margin: 0;
+        }
+        .container { 
+            width: 100%; max-width: 450px; background: #fff; padding: 20px; 
+            border-radius: 25px; box-shadow: 0 15px 50px rgba(0,0,0,0.6); 
+            text-align: center; border: 5px solid var(--gold); align-self: center;
+        }
+        
+        h1 { color: var(--red); text-shadow: 2px 2px var(--accent); margin: 5px 0; font-size: 28px; letter-spacing: 2px; }
+        .subtitle { color: var(--dark-red); font-weight: bold; font-size: 16px; margin-bottom: 10px; }
+        .chance-badge { font-size: 22px; color: var(--red); font-weight: 900; margin: 10px 0; }
+
+        /* 店員區域 */
+        .admin-section { 
+            background: #fff8e1; padding: 10px; border-radius: 15px; 
+            margin-bottom: 15px; border: 2px dashed var(--gold); 
+        }
+        input { width: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+        button.admin-btn { 
+            background: var(--dark-red); color: white; border: none; 
+            padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold;
+        }
+
+        /* 輪盤視覺 */
+        .wheel-container { position: relative; width: 300px; height: 300px; margin: 0 auto; }
+        .wheel-outer {
+            width: 100%; height: 100%; border-radius: 50%;
+            background: repeating-conic-gradient(from 0deg, var(--red) 0deg 10deg, #fff 10deg 20deg);
+            box-shadow: 0 0 25px var(--gold); display: flex; align-items: center; justify-content: center;
+        }
+        #wheelCanvas { border-radius: 50%; transition: transform 4s cubic-bezier(0.1, 0, 0.2, 1); }
+        .pointer { 
+            position: absolute; top: -10px; left: 50%; transform: translateX(-50%); 
+            width: 0; height: 0; border-left: 15px solid transparent; 
+            border-right: 15px solid transparent; border-top: 35px solid var(--gold); 
+            z-index: 20; filter: drop-shadow(0 4px 5px rgba(0,0,0,0.5));
+        }
+
+        /* 抽獎按鈕 */
+        .draw-btn { 
+            width: 100%; padding: 15px; font-size: 22px; font-weight: bold; 
+            color: #fff; background: linear-gradient(to bottom, #ff4747, #b30000); 
+            border: none; border-radius: 50px; cursor: pointer; margin-top: 15px;
+            box-shadow: 0 6px 0 #660000; text-transform: uppercase;
+        }
+        .draw-btn:disabled { background: #999; box-shadow: none; transform: translateY(6px); }
+
+        /* 結果與核銷區 */
+        .result-display { 
+            display: none; margin-top: 20px; padding: 15px; 
+            border: 4px solid var(--gold); border-radius: 15px; 
+            background: var(--dark-red); color: white;
+        }
+        .prize-text { font-size: 28px; font-weight: bold; color: var(--gold); margin: 10px 0; }
+        .verify-btn { background: var(--gold); color: #000; padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .stamp { 
+            font-size: 40px; color: #1ed760; font-weight: bold; transform: rotate(-15deg); 
+            border: 5px solid #1ed760; display: inline-block; padding: 5px 15px; margin: 10px; 
+        }
+        .timer-box { font-family: monospace; color: #1ed760; background: #000; padding: 5px; border-radius: 5px; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>好傢在年終慶活動</h1>
+    <div class="subtitle">🧧 百萬好禮 ‧ 驚喜大方送 🧧</div>
+    
+    <div class="admin-section">
+        <input type="number" id="amtInput" placeholder="金額">
+        <button class="admin-btn" onclick="addChance()">設定點數</button>
+    </div>
+
+    <div class="chance-badge">抽獎機會：<span id="chanceCount">0</span> 次</div>
+
+    <div class="wheel-container">
+        <div class="pointer"></div>
+        <div class="wheel-outer">
+            <canvas id="wheelCanvas" width="280" height="280"></canvas>
+        </div>
+    </div>
+
+    <button id="drawBtn" class="draw-btn" onclick="startSpin()" disabled>開始年終抽獎</button>
+
+    <div id="resultBox" class="result-display">
+        </div>
+
+    <div style="margin-top: 15px; color: #666; font-size: 11px; line-height: 1.5;">
+        ※ 每滿 2000 元獲得一次機會<br>
+        ※ 核銷時請出示此畫面給店員點擊<br>
+        ※ <span style="color:red;">即時秒數跳動驗證，截圖無效</span>
+    </div>
+</div>
+
+<script>
+    // 獎項設定與中獎權重
+    const prizes = [
+        { n: "獨立筒床墊", w: 15, c1: "#e60000", c2: "#fff" },
+        { n: "65吋電視", w: 2, c1: "#ffdf00", c2: "#333" },
+        { n: "電動沙發", w: 4, c1: "#e60000", c2: "#fff" },
+        { n: "石墨烯被胎", w: 30, c1: "#ffdf00", c2: "#333" },
+        { n: "按摩小家電", w: 30, c1: "#e60000", c2: "#fff" },
+        { n: "5cm記憶床墊", w: 20, c1: "#ffdf00", c2: "#333" },
+        { n: "毛毯", w: 500, c1: "#e60000", c2: "#fff" },
+        { n: "濕紙巾", w: 10000, c1: "#ffdf00", c2: "#333" }
+    ];
+
+    let chances = 0;
+    let isSpinning = false;
+    let currentRotation = 0;
+
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    const centerX = 140, centerY = 140;
+
+    function drawWheel() {
+        const arc = (2 * Math.PI) / prizes.length;
+        prizes.forEach((p, i) => {
+            const angle = i * arc;
+            ctx.fillStyle = p.c1;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, 140, angle, angle + arc);
+            ctx.fill();
+            ctx.strokeStyle = "#fff";
+            ctx.stroke();
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(angle + arc / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = p.c2;
+            ctx.font = "bold 15px Microsoft JhengHei";
+            ctx.fillText(p.n, 125, 6);
+            ctx.restore();
+        });
+    }
+    drawWheel();
+
+    function updateClock() {
+        const clockEl = document.getElementById('liveClock');
+        if (clockEl) {
+            const now = new Date();
+            const ms = Math.floor(now.getMilliseconds()/100);
+            clockEl.innerText = now.toLocaleString() + "." + ms + " [LIVE]";
+        }
+    }
+    setInterval(updateClock, 100);
+
+    function addChance() {
+        const val = document.getElementById('amtInput').value;
+        if (!val || val < 2000) return alert("消費需滿 2000 元！");
+        const add = Math.floor(val / 2000);
+        chances += add;
+        document.getElementById('amtInput').value = "";
+        updateUI();
+        alert(`年終大酬賓！成功增加 ${add} 次機會。`);
+    }
+
+    function startSpin() {
+        if (chances <= 0 || isSpinning) return;
+        isSpinning = true;
+        document.getElementById('drawBtn').disabled = true;
+        document.getElementById('resultBox').style.display = 'none';
+
+        const totalW = prizes.reduce((s, p) => s + p.w, 0);
+        let random = Math.random() * totalW;
+        let winIdx = 0;
+        for (let i = 0; i < prizes.length; i++) {
+            if (random < prizes[i].w) { winIdx = i; break; }
+            random -= prizes[i].w;
+        }
+
+        const segmentDeg = 360 / prizes.length;
+        const stopAngle = 360 - (winIdx * segmentDeg) - 90 - (segmentDeg / 2);
+        currentRotation += 1800 + (stopAngle - (currentRotation % 360));
+        canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+        setTimeout(() => {
+            isSpinning = false;
+            chances--;
+            updateUI();
+            showResult(prizes[winIdx].n);
+        }, 4000);
+    }
+
+    function showResult(prizeName) {
+        const resBox = document.getElementById('resultBox');
+        resBox.style.display = 'block';
+        resBox.innerHTML = `
+            <div style="font-size: 18px; color: var(--gold); font-weight: bold;">🧧 恭喜中獎 🧧</div>
+            <div class="prize-text">${prizeName}</div>
+            <div id="verifyArea">
+                <button class="verify-btn" onclick="confirmVerify()">店員現場核銷</button>
+            </div>
+            <div id="liveClock" class="timer-box"></div>
+        `;
+    }
+
+    function confirmVerify() {
+        if (confirm("店員確認：確定核銷此獎項並發放禮品？")) {
+            document.getElementById('verifyArea').innerHTML = '<div class="stamp">已兌換</div>';
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('chanceCount').innerText = chances;
+        document.getElementById('drawBtn').disabled = (chances <= 0 || isSpinning);
+    }
+
+    window.onbeforeunload = () => { if(chances > 0) return "年終好運還沒抽完，確定要離開嗎？"; };
+</script>
+
+</body>
+</html>
